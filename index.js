@@ -165,4 +165,27 @@ SlackBot.prototype.buildRouter = function () {
   }.bind(this);
 };
 
+// Using the old context.done as the callback function
+// This is to provide compatibility to old nodejs version, as well as the serverless-runtime-babel plugin.
+SlackBot.prototype.buildRouterWithContext = function () {
+  return function (event, context) {
+    var foundCommand;
+    var builtEvent = event;
+
+    if (this.config.pingEnabled && event.source && event.source === 'aws.events' &&
+      event.resources && event.resources[0].indexOf('ping') !== -1) {
+      return context.succeed('Ok');
+    }
+
+    builtEvent.body = qs.parse(builtEvent.body);
+    if (this.config.token && (!builtEvent.body.token || builtEvent.body.token !== this.config.token)) {
+      return context.fail('Invalid Slack token');
+    }
+
+    foundCommand = this.findCommand(builtEvent.body.text);
+    builtEvent.args = foundCommand.args;
+    return this.callCommand(foundCommand.commandName, builtEvent, context.done);
+  }.bind(this);
+};
+
 module.exports = SlackBot;
